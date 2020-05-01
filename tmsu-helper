@@ -1,0 +1,87 @@
+#!/usr/bin/env python3
+
+
+import argparse
+import subprocess
+import sys
+import typing
+
+
+def get_tags(path_db) -> typing.List[str]:
+    proc = subprocess.run(['tmsu', '-D', path_db, 'tags'],
+                          stdout=subprocess.PIPE)
+    return proc.stdout.decode('utf8').rstrip().split('\n')
+
+
+def print_tags(path_db: str, fname: str, tags: typing.List[str]):
+    proc = subprocess.run(['tmsu', '-D', path_db, 'tags', fname],
+                          stdout=subprocess.PIPE)
+    ret = proc.stdout.decode('utf8').rstrip().split(': ')
+    current_tags: typing.Set[str] = set()
+    if len(ret) != 1:
+        current_tags = set(ret[1].split())
+
+    print(fname)
+    for idx, tag in enumerate(tags):
+        mark = ' '
+        if tag in current_tags:
+            mark = '*'
+        print(f'{mark} [{idx}] {tag}')
+
+
+def set_tags(path_db: str, fname: str, tags: typing.List[str],
+             line: str, remove=False):
+    new_tags = []
+    for item in line.strip().split():
+        if item.startswith('!'):
+            new_tags.append(item[1:])
+            continue
+        try:
+            new_tags.append(tags[int(item)])
+        except ValueError:
+            print(f' Not number: {item}')
+            pass
+    print("Selected tags: ", new_tags)
+    if len(new_tags) == 0:
+        return
+
+    cmd = 'tag'
+    if remove:
+        cmd = 'untag'
+    proc = subprocess.run(['tmsu', '-D', path_db, cmd, fname] + new_tags,
+                          stdout=subprocess.PIPE)
+    print(proc.stdout.decode('utf8'))
+
+
+def operation(path_db: str) -> None:
+    fname = ''
+    for line in iter(sys.stdin.readline, ""):
+        if line.startswith("'"):
+            tags = get_tags(path_db)
+            fname = line[1:-3]
+            print(fname)
+            print_tags(path_db, fname, tags)
+        elif len(fname) > 0 and len(line) > 1:
+            tags = get_tags(path_db)
+            if line.startswith('l'):
+                print_tags(path_db, fname, tags)
+            elif line.startswith('u'):
+                print("Untag")
+                set_tags(path_db, fname, tags, line[1:], True)
+            else:
+                set_tags(path_db, fname, tags, line)
+
+
+def get_opts() -> argparse.Namespace:
+    oparser = argparse.ArgumentParser()
+    oparser.add_argument("--db", "-D", required=True)
+    return oparser.parse_args()
+
+
+def main() -> None:
+    opts = get_opts()
+    operation(opts.db)
+
+
+if __name__ == '__main__':
+    main()
