@@ -41,6 +41,9 @@ def set_tags(path_db: str, fname: str, tags: typing.List[str],
         except ValueError:
             print(f' Not number: {item}')
             pass
+        except IndexError:
+            print(f' Invalid number: {item}')
+            pass
     print("Selected tags: ", new_tags)
     if len(new_tags) == 0:
         return
